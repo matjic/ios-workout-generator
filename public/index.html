@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>iOS Workout Generator</title>
+<style>
+  :root { --bg:#0b0d10; --card:#15191f; --line:#2a313b; --fg:#e8edf2; --mut:#8a96a6; --acc:#5ac8fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:680px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p.sub { color:var(--mut); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  input, select { width:100%; padding:9px 10px; background:#0e1216; color:var(--fg); border:1px solid var(--line); border-radius:8px; font-size:15px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:120px; }
+  .step { display:flex; gap:8px; align-items:flex-end; margin:8px 0; }
+  .step > div { flex:1; }
+  .step select { max-width:130px; }
+  button { font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); background:#1d242c; color:var(--fg); padding:9px 14px; }
+  button.primary { background:var(--acc); color:#06222e; border-color:var(--acc); font-weight:600; }
+  button.tiny { padding:4px 9px; font-size:13px; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  .blockhead { display:flex; justify-content:space-between; align-items:center; }
+  h3 { font-size:14px; margin:0; color:var(--acc); }
+  pre { background:#0e1216; border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; font-size:12px; color:var(--mut); }
+  .hint { color:var(--mut); font-size:12px; }
+  a { color:var(--acc); }
+</style>
+</head>
+<body>
+<main>
+  <h1>iOS Workout Generator</h1>
+  <p class="sub">Build a custom Apple&nbsp;Watch workout, then add it to your watch or phone. Everything runs in your browser — nothing is uploaded.</p>
+
+  <div class="card">
+    <label>Workout name</label>
+    <input id="name" value="N2R Day 1" />
+    <div class="row">
+      <div>
+        <label>Activity</label>
+        <select id="activity">
+          <option>running</option><option>walking</option><option>cycling</option><option>hiking</option>
+        </select>
+      </div>
+      <div>
+        <label>Location</label>
+        <select id="location"><option>outdoor</option><option>indoor</option></select>
+      </div>
+      <div>
+        <label>Warmup</label>
+        <input id="warmup" value="5min" />
+      </div>
+      <div>
+        <label>Cooldown</label>
+        <input id="cooldown" value="5min" />
+      </div>
+    </div>
+    <p class="hint">Goals: time like <code>30s</code>, <code>5min</code>, <code>1min30s</code> · distance like <code>400m</code>, <code>1km</code>, <code>1mi</code> · or <code>open</code>.</p>
+  </div>
+
+  <div id="blocks"></div>
+  <button class="tiny" id="addBlock">+ Add block</button>
+
+  <div class="actions">
+    <button class="primary" id="download">Download .workout</button>
+    <button id="share" hidden>Share to phone…</button>
+    <button id="showJson">Show JSON</button>
+  </div>
+
+  <pre id="jsonBox" hidden></pre>
+
+  <p class="hint" style="margin-top:24px">
+    On a Mac: download, then AirDrop the file to your iPhone and tap it → opens in Fitness.
+    On iPhone: use “Share to phone…” (or download and open from Files) → Fitness → Add.
+  </p>
+</main>
+
+<script type="module">
+import { encodeWorkout, workoutFilename } from "./encoder.js";
+
+const blocksEl = document.getElementById("blocks");
+
+function stepRow(type = "work", goal = "1min") {
+  const div = document.createElement("div");
+  div.className = "step";
+  div.innerHTML = `
+    <div><label>Type</label><select class="s-type">
+      <option value="work">run / work</option><option value="recovery">walk / recovery</option>
+    </select></div>
+    <div><label>Goal</label><input class="s-goal" value="${goal}"></div>
+    <button class="tiny s-del" title="remove">✕</button>`;
+  div.querySelector(".s-type").value = type;
+  div.querySelector(".s-del").onclick = () => div.remove();
+  return div;
+}
+
+function blockCard(repeat = 6, steps = [["work","1min"],["recovery","2min"]]) {
+  const card = document.createElement("div");
+  card.className = "card block";
+  card.innerHTML = `
+    <div class="blockhead"><h3>Repeat block</h3><button class="tiny b-del">remove block</button></div>
+    <label>Repeat count</label><input class="b-repeat" type="number" min="1" value="${repeat}" style="max-width:120px">
+    <div class="b-steps"></div>
+    <button class="tiny b-addstep">+ Add step</button>`;
+  const stepsEl = card.querySelector(".b-steps");
+  steps.forEach(([t,g]) => stepsEl.appendChild(stepRow(t,g)));
+  card.querySelector(".b-addstep").onclick = () => stepsEl.appendChild(stepRow());
+  card.querySelector(".b-del").onclick = () => card.remove();
+  return card;
+}
+
+document.getElementById("addBlock").onclick = () => blocksEl.appendChild(blockCard());
+blocksEl.appendChild(blockCard()); // start with one
+
+function readWorkout() {
+  const blocks = [...blocksEl.querySelectorAll(".block")].map((b) => ({
+    repeat: parseInt(b.querySelector(".b-repeat").value, 10) || 1,
+    steps: [...b.querySelectorAll(".step")].map((s) => ({
+      type: s.querySelector(".s-type").value,
+      goal: s.querySelector(".s-goal").value.trim() || "open",
+    })),
+  }));
+  const w = {
+    name: document.getElementById("name").value.trim() || "Workout",
+    activity: document.getElementById("activity").value,
+    location: document.getElementById("location").value,
+    blocks,
+  };
+  const wu = document.getElementById("warmup").value.trim();
+  const cd = document.getElementById("cooldown").value.trim();
+  if (wu) w.warmup = { goal: wu };
+  if (cd) w.cooldown = { goal: cd };
+  return w;
+}
+
+function buildFile() {
+  const w = readWorkout();
+  const bytes = encodeWorkout(w);
+  return { w, file: new File([bytes], workoutFilename(w.name), { type: "application/octet-stream" }) };
+}
+
+document.getElementById("download").onclick = () => {
+  try {
+    const { file } = buildFile();
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url; a.download = file.name; a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) { alert("Couldn’t build workout: " + e.message); }
+};
+
+const shareBtn = document.getElementById("share");
+if (navigator.canShare && navigator.canShare({ files: [new File([1], "x.workout")] })) {
+  shareBtn.hidden = false;
+  shareBtn.onclick = async () => {
+    try {
+      const { w, file } = buildFile();
+      await navigator.share({ files: [file], title: w.name });
+    } catch (e) { if (e.name !== "AbortError") alert("Share failed: " + e.message); }
+  };
+}
+
+document.getElementById("showJson").onclick = () => {
+  const box = document.getElementById("jsonBox");
+  box.hidden = !box.hidden;
+  const w = readWorkout();
+  box.textContent =
+`// save as workout.json, then generate the file locally with the CLI:
+//   bunx ios-workout-generator workout.json
+${JSON.stringify(w, null, 2)}`;
+};
+</script>
+</body>
+</html>

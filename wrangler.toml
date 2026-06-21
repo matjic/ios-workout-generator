@@ -1,0 +1,4 @@
+# Static site (Cloudflare Pages). No Worker — the UI generates files in the browser.
+name = "ios-workout-generator"
+compatibility_date = "2025-04-01"
+pages_build_output_dir = "public"
