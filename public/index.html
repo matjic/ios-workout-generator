@@ -47,7 +47,15 @@
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } }
   .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
   .blockhead { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  .block-actions { display:flex; gap:8px; }
+  .block-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .goal-label { display:block; font-size:var(--fs-caption); color:var(--mut); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  .goal { display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center; }
+  .goal .g-time, .goal .g-dist { display:inline-flex; gap:6px; align-items:center; }
+  .goal .g-time[hidden], .goal .g-dist[hidden] { display:none; }
+  .goal .g-u { color:var(--mut); font-size:var(--fs-caption); }
+  .goal select, .goal input { width:auto; }
+  .goal .g-min, .goal .g-sec { width:62px; }
+  .goal .g-val { width:88px; }
   h3 { font-size:var(--fs-caption); margin:0; color:var(--acc); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
   pre { background:var(--field-bg); border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; font-size:var(--fs-caption); line-height:1.5; color:var(--mut); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
   .hint { color:var(--mut); font-size:var(--fs-caption); }
@@ -87,16 +95,18 @@
         <label for="location">Location</label>
         <select id="location"><option>outdoor</option><option>indoor</option></select>
       </div>
+    </div>
+    <div class="row">
       <div>
-        <label for="warmup">Warmup</label>
-        <input id="warmup" value="5min" />
+        <span class="goal-label">Warmup</span>
+        <span id="warmupGoal"></span>
       </div>
       <div>
-        <label for="cooldown">Cooldown</label>
-        <input id="cooldown" value="5min" />
+        <span class="goal-label">Cooldown</span>
+        <span id="cooldownGoal"></span>
       </div>
     </div>
-    <p class="hint">Goals: time like <code>30s</code>, <code>5min</code>, <code>1min30s</code> · distance like <code>400m</code>, <code>1km</code>, <code>1mi</code> · or <code>open</code>.</p>
+    <p class="hint">Each goal is a time, a distance, or open (tap to advance). “None” skips the warmup or cooldown entirely.</p>
   </div>
 
   <div id="blocks"></div>
@@ -136,6 +146,74 @@ function removeWithUndo(node, kind) {
   }});
 }
 
+const TIME_MULT = { s:1, sec:1, secs:1, min:60, mins:60, h:3600, hr:3600 };
+const DIST_UNITS = new Set(["m", "km", "mi", "yd"]);
+const GOAL_RE = /(\d+(?:\.\d+)?)\s*([a-z]+)/g;
+
+// Parse a goal string ("5min", "1min30s", "400m", "open", "") into picker state.
+function parseGoalString(s) {
+  s = String(s ?? "").trim().toLowerCase();
+  if (s === "") return { kind: "none" };
+  if (s === "open") return { kind: "open" };
+  const segs = [...s.matchAll(GOAL_RE)].map((m) => [parseFloat(m[1]), m[2]]);
+  if (segs.length && segs.every(([, u]) => u in TIME_MULT)) {
+    const total = segs.reduce((t, [n, u]) => t + n * TIME_MULT[u], 0);
+    return { kind: "time", min: Math.floor(total / 60), sec: Math.round(total % 60) };
+  }
+  if (segs.length === 1 && DIST_UNITS.has(segs[0][1])) {
+    return { kind: "dist", val: segs[0][0], unit: segs[0][1] };
+  }
+  return { kind: "time", min: 1, sec: 0 };
+}
+
+// A structured goal picker. `optional` adds a "None" choice (warmup/cooldown).
+// Numbers-only inputs mean an invalid goal can't be entered — that's the point.
+function goalControl(goal, optional) {
+  const g = parseGoalString(goal);
+  if (g.kind === "none" && !optional) g.kind = "open";
+  const wrap = document.createElement("span");
+  wrap.className = "goal";
+  wrap.innerHTML = `
+    <select class="g-kind" aria-label="Goal type">
+      ${optional ? '<option value="none">None</option>' : ""}
+      <option value="time">Time</option>
+      <option value="dist">Distance</option>
+      <option value="open">Open</option>
+    </select>
+    <span class="g-time"><input class="g-min" type="number" min="0" inputmode="numeric" aria-label="Minutes"><span class="g-u">min</span><input class="g-sec" type="number" min="0" max="59" inputmode="numeric" aria-label="Seconds"><span class="g-u">s</span></span>
+    <span class="g-dist"><input class="g-val" type="number" min="0" step="any" inputmode="decimal" aria-label="Distance"><select class="g-unit" aria-label="Distance unit"><option>m</option><option>km</option><option>mi</option><option>yd</option></select></span>`;
+  const kind = wrap.querySelector(".g-kind");
+  kind.value = g.kind;
+  wrap.querySelector(".g-min").value = g.min ?? 1;
+  wrap.querySelector(".g-sec").value = g.sec ?? 0;
+  wrap.querySelector(".g-val").value = g.val ?? 400;
+  wrap.querySelector(".g-unit").value = g.unit ?? "m";
+  const sync = () => {
+    wrap.querySelector(".g-time").hidden = kind.value !== "time";
+    wrap.querySelector(".g-dist").hidden = kind.value !== "dist";
+  };
+  kind.onchange = sync;
+  sync();
+  return wrap;
+}
+
+// Serialize a goal picker back to a goal string the encoder understands.
+function readGoal(wrap) {
+  const kind = wrap.querySelector(".g-kind").value;
+  if (kind === "none") return "";
+  if (kind === "open") return "open";
+  if (kind === "dist") {
+    const v = parseFloat(wrap.querySelector(".g-val").value) || 0;
+    return v > 0 ? `${v}${wrap.querySelector(".g-unit").value}` : "";
+  }
+  const min = parseInt(wrap.querySelector(".g-min").value, 10) || 0;
+  const sec = parseInt(wrap.querySelector(".g-sec").value, 10) || 0;
+  if (min && sec) return `${min}min${sec}s`;
+  if (min) return `${min}min`;
+  if (sec) return `${sec}s`;
+  return "";
+}
+
 function stepRow(type = "work", goal = "1min") {
   const div = document.createElement("div");
   div.className = "step";
@@ -143,9 +221,10 @@ function stepRow(type = "work", goal = "1min") {
     <div><label>Type <select class="s-type">
       <option value="work">run / work</option><option value="recovery">walk / recovery</option>
     </select></label></div>
-    <div><label>Goal <input class="s-goal" value="${goal}"></label></div>
+    <div class="s-goalwrap"><span class="goal-label">Goal</span></div>
     <button class="tiny s-del" type="button" aria-label="Remove step" title="Remove step">✕</button>`;
   div.querySelector(".s-type").value = type;
+  div.querySelector(".s-goalwrap").appendChild(goalControl(goal, false));
   div.querySelector(".s-del").onclick = () => removeWithUndo(div, "step");
   return div;
 }
@@ -155,7 +234,7 @@ function readBlockState(card) {
   return {
     repeat: Math.max(1, parseInt(card.querySelector(".b-repeat").value, 10) || 1),
     steps: [...card.querySelectorAll(".step")].map((s) => [
-      s.querySelector(".s-type").value, s.querySelector(".s-goal").value,
+      s.querySelector(".s-type").value, readGoal(s.querySelector(".goal")) || "open",
     ]),
   };
 }
@@ -165,6 +244,8 @@ function blockCard(repeat = 6, steps = [["work","1min"],["recovery","2min"]]) {
   card.className = "card block";
   card.innerHTML = `
     <div class="blockhead"><h3>Repeat block</h3><div class="block-actions">
+      <button class="tiny b-up" type="button" aria-label="Move block up" title="Move up">↑</button>
+      <button class="tiny b-down" type="button" aria-label="Move block down" title="Move down">↓</button>
       <button class="tiny b-dup" type="button">Duplicate</button>
       <button class="tiny b-del" type="button">Remove</button>
     </div></div>
@@ -179,18 +260,29 @@ function blockCard(repeat = 6, steps = [["work","1min"],["recovery","2min"]]) {
     card.after(blockCard(st.repeat, st.steps));
   };
   card.querySelector(".b-del").onclick = () => removeWithUndo(card, "block");
+  card.querySelector(".b-up").onclick = () => {
+    const prev = card.previousElementSibling;
+    if (prev) card.parentNode.insertBefore(card, prev);
+  };
+  card.querySelector(".b-down").onclick = () => {
+    const next = card.nextElementSibling;
+    if (next) card.parentNode.insertBefore(next, card);
+  };
   return card;
 }
 
 document.getElementById("addBlock").onclick = () => blocksEl.appendChild(blockCard());
 blocksEl.appendChild(blockCard()); // start with one
 
+document.getElementById("warmupGoal").appendChild(goalControl("5min", true));
+document.getElementById("cooldownGoal").appendChild(goalControl("5min", true));
+
 function readWorkout() {
   const blocks = [...blocksEl.querySelectorAll(".block")].map((b) => ({
     repeat: Math.max(1, parseInt(b.querySelector(".b-repeat").value, 10) || 1),
     steps: [...b.querySelectorAll(".step")].map((s) => ({
       type: s.querySelector(".s-type").value,
-      goal: s.querySelector(".s-goal").value.trim() || "open",
+      goal: readGoal(s.querySelector(".goal")) || "open",
     })),
   }));
   const w = {
@@ -199,8 +291,8 @@ function readWorkout() {
     location: document.getElementById("location").value,
     blocks,
   };
-  const wu = document.getElementById("warmup").value.trim();
-  const cd = document.getElementById("cooldown").value.trim();
+  const wu = readGoal(document.querySelector("#warmupGoal .goal"));
+  const cd = readGoal(document.querySelector("#cooldownGoal .goal"));
   if (wu) w.warmup = { goal: wu };
   if (cd) w.cooldown = { goal: cd };
   return w;
@@ -210,23 +302,6 @@ function buildFile() {
   const w = readWorkout();
   const bytes = encodeWorkout(w);
   return { w, file: new File([bytes], workoutFilename(w.name), { type: "application/octet-stream" }) };
-}
-
-// --- inline validation (mirrors the encoder's goal grammar in encoder.js) ---
-const TIME_UNITS = new Set(["s","sec","secs","min","mins","h","hr"]);
-const DIST_UNITS = new Set(["m","km","mi","yd"]);
-const GOAL_RE = /(\d+(?:\.\d+)?)\s*([a-z]+)/g;
-
-function goalError(text) {
-  const t = String(text).trim().toLowerCase();
-  if (t === "" || t === "open") return null;
-  const units = [...t.matchAll(GOAL_RE)].map((m) => m[2]);
-  const leftover = t.replace(GOAL_RE, "").trim();
-  if (units.length === 0 || leftover !== "")
-    return "Use a time like 5min, a distance like 400m, or open.";
-  if (units.every((u) => TIME_UNITS.has(u))) return null;
-  if (units.length === 1 && DIST_UNITS.has(units[0])) return null;
-  return "Use a single distance (400m) or one or more times (1min30s) — not mixed.";
 }
 
 function setStatus(msg, kind, action) {
@@ -249,43 +324,26 @@ function clearErrors() {
   document.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
 }
 
-function markField(input, msg) {
-  input.setAttribute("aria-invalid", "true");
-  const small = document.createElement("small");
-  small.className = "field-err";
-  small.textContent = msg;
-  input.insertAdjacentElement("afterend", small);
-}
-
-// Returns { ok, steps }. On failure, renders inline errors + a status line and
-// focuses the first bad field. Counts content steps (warmup, cooldown, block steps).
+// Returns { ok, steps }. The structured goal pickers can't produce invalid
+// input, so this only guards structural emptiness (no content, or an empty block).
 function validate() {
   clearErrors();
   let errors = 0, steps = 0;
 
-  for (const id of ["warmup", "cooldown"]) {
-    const input = document.getElementById(id);
-    const err = goalError(input.value);
-    if (err) { markField(input, err); errors++; }
-    else if (input.value.trim()) steps++;
+  for (const id of ["warmupGoal", "cooldownGoal"]) {
+    if (readGoal(document.querySelector(`#${id} .goal`))) steps++;
   }
 
   for (const block of blocksEl.querySelectorAll(".block")) {
     const stepEls = block.querySelectorAll(".step");
     if (stepEls.length === 0) {
-      const slot = block.querySelector(".b-steps");
       const small = document.createElement("small");
       small.className = "field-err";
       small.textContent = "Add at least one step, or remove this block.";
-      slot.insertAdjacentElement("afterend", small);
+      block.querySelector(".b-steps").insertAdjacentElement("afterend", small);
       errors++;
     }
-    for (const step of stepEls) {
-      const goal = step.querySelector(".s-goal");
-      const err = goalError(goal.value);
-      if (err) { markField(goal, err); errors++; }
-      else steps++;
-    }
+    steps += stepEls.length;
   }
 
   if (errors === 0 && steps === 0) {
@@ -293,9 +351,8 @@ function validate() {
     return { ok: false, steps };
   }
   if (errors > 0) {
-    setStatus(errors === 1 ? "Fix the highlighted field, then try again."
-                           : `Fix the ${errors} highlighted fields, then try again.`, "err");
-    document.querySelector("[aria-invalid='true']")?.focus();
+    setStatus(errors === 1 ? "Fix the highlighted block, then try again."
+                           : `Fix the ${errors} highlighted blocks, then try again.`, "err");
     return { ok: false, steps };
   }
   return { ok: true, steps };
