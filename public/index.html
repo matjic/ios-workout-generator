@@ -41,6 +41,9 @@
   #status[hidden] { display:none; }
   #status.ok  { color:var(--ok);  border-color:rgba(126,224,160,.4); background:rgba(126,224,160,.08); }
   #status.err { color:var(--err); border-color:rgba(255,138,138,.4); background:rgba(255,138,138,.08); }
+  #status.info { color:var(--fg); border-color:var(--line); background:var(--card); }
+  .linklike { min-height:auto; margin-left:8px; padding:0; border:none; background:none; color:var(--acc); font:inherit; text-decoration:underline; cursor:pointer; }
+  .linklike:hover { filter:brightness(1.12); border-color:transparent; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } }
   .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
   .blockhead { display:flex; justify-content:space-between; align-items:center; gap:8px; }
@@ -112,12 +115,26 @@
     On a Mac: download, then AirDrop the file to your iPhone and tap it → opens in Fitness.
     On iPhone: download it, then open it from Files → Fitness → Add.
   </p>
+  <p class="hint" style="margin-top:12px">
+    <a href="https://github.com/matjic/ios-workout-generator#readme" target="_blank" rel="noopener">How it works &amp; the <code>.workout</code> format ↗</a>
+  </p>
 </main>
 
 <script type="module">
 import { encodeWorkout, workoutFilename } from "./encoder.js";
 
 const blocksEl = document.getElementById("blocks");
+
+// Remove a node, but offer a one-step undo in the status line so an accidental
+// delete is recoverable (the detached node keeps its handlers; we just reinsert).
+function removeWithUndo(node, kind) {
+  const parent = node.parentNode, next = node.nextSibling;
+  node.remove();
+  setStatus(`Removed ${kind}.`, "info", { label: "Undo", fn: () => {
+    parent.insertBefore(node, next);
+    setStatus(`${kind === "block" ? "Block" : "Step"} restored.`, "ok");
+  }});
+}
 
 function stepRow(type = "work", goal = "1min") {
   const div = document.createElement("div");
@@ -129,7 +146,7 @@ function stepRow(type = "work", goal = "1min") {
     <div><label>Goal <input class="s-goal" value="${goal}"></label></div>
     <button class="tiny s-del" type="button" aria-label="Remove step" title="Remove step">✕</button>`;
   div.querySelector(".s-type").value = type;
-  div.querySelector(".s-del").onclick = () => div.remove();
+  div.querySelector(".s-del").onclick = () => removeWithUndo(div, "step");
   return div;
 }
 
@@ -161,7 +178,7 @@ function blockCard(repeat = 6, steps = [["work","1min"],["recovery","2min"]]) {
     const st = readBlockState(card);
     card.after(blockCard(st.repeat, st.steps));
   };
-  card.querySelector(".b-del").onclick = () => card.remove();
+  card.querySelector(".b-del").onclick = () => removeWithUndo(card, "block");
   return card;
 }
 
@@ -212,10 +229,18 @@ function goalError(text) {
   return "Use a single distance (400m) or one or more times (1min30s) — not mixed.";
 }
 
-function setStatus(msg, kind) {
+function setStatus(msg, kind, action) {
   const el = document.getElementById("status");
-  el.textContent = msg;
-  el.className = kind;          // "ok" | "err"
+  el.className = kind;          // "ok" | "err" | "info"
+  el.textContent = msg;         // clears any prior content, incl. a stale Undo
+  if (action) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "linklike";
+    btn.textContent = action.label;
+    btn.onclick = action.fn;
+    el.append(btn);
+  }
   el.hidden = false;
 }
 
