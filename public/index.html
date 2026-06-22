@@ -2,32 +2,67 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>iOS Workout Generator</title>
 <style>
-  :root { --bg:#0b0d10; --card:#15191f; --line:#2a313b; --fg:#e8edf2; --mut:#8a96a6; --acc:#5ac8fa; }
+  :root {
+    --bg:#0b0d10; --card:#15191f; --line:#2a313b; --fg:#e8edf2; --mut:#8a96a6; --acc:#5ac8fa; --err:#ff8a8a; --ok:#7ee0a0;
+    --field-bg:#0e1216; --btn-bg:#1d242c; --on-accent:#06222e;
+    --fs-caption:.75rem; --fs-body:1rem; --fs-title:1.75rem; /* 12 / 16 / 28px */
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); }
+  body { margin:0; font:var(--fs-body)/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); font-kerning:normal; -webkit-text-size-adjust:100%; }
   main { max-width:680px; margin:0 auto; padding:24px 16px 64px; }
-  h1 { font-size:22px; margin:0 0 4px; }
-  p.sub { color:var(--mut); margin:0 0 24px; }
+  h1 { font-size:var(--fs-title); line-height:1.15; letter-spacing:-.02em; font-weight:650; margin:0 0 6px; text-wrap:balance; }
+  p.sub { color:var(--mut); margin:0 0 28px; max-width:60ch; text-wrap:pretty; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0; }
-  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
-  input, select { width:100%; padding:9px 10px; background:#0e1216; color:var(--fg); border:1px solid var(--line); border-radius:8px; font-size:15px; }
+  label { display:block; font-size:var(--fs-caption); color:var(--mut); margin:8px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  input, select { width:100%; padding:9px 10px; background:var(--field-bg); color:var(--fg); border:1px solid var(--line); border-radius:8px; font-size:var(--fs-body); text-transform:none; letter-spacing:normal; transition:border-color .15s ease; }
+  input:hover, select:hover { border-color:var(--mut); }
   .row { display:flex; gap:10px; flex-wrap:wrap; }
   .row > div { flex:1; min-width:120px; }
   .step { display:flex; gap:8px; align-items:flex-end; margin:8px 0; }
-  .step > div { flex:1; }
+  .step > div { flex:1; min-width:0; }
   .step select { max-width:130px; }
-  button { font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); background:#1d242c; color:var(--fg); padding:9px 14px; }
-  button.primary { background:var(--acc); color:#06222e; border-color:var(--acc); font-weight:600; }
-  button.tiny { padding:4px 9px; font-size:13px; }
+  button { font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); background:var(--btn-bg); color:var(--fg); padding:9px 14px; transition:border-color .15s ease, background-color .15s ease, filter .15s ease, transform .05s ease; }
+  button.primary { background:var(--acc); color:var(--on-accent); border-color:var(--acc); font-weight:600; }
+  button.tiny { padding:6px 10px; font-size:var(--fs-caption); }
+  button:hover { border-color:var(--mut); }
+  button.primary:hover { filter:brightness(1.08); border-color:var(--acc); }
+  button:active { transform:translateY(1px); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .s-del:hover { color:var(--err); border-color:var(--err); }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    outline:2px solid var(--acc); outline-offset:2px; border-radius:8px;
+  }
+  input[aria-invalid="true"] { border-color:var(--err); }
+  .field-err { display:block; color:var(--err); font-size:var(--fs-caption); margin-top:5px; text-transform:none; letter-spacing:normal; }
+  #status { margin:16px 0 0; padding:11px 13px; border-radius:8px; font-size:var(--fs-body); line-height:1.5; border:1px solid var(--line); }
+  #status[hidden] { display:none; }
+  #status.ok  { color:var(--ok);  border-color:rgba(126,224,160,.4); background:rgba(126,224,160,.08); }
+  #status.err { color:var(--err); border-color:rgba(255,138,138,.4); background:rgba(255,138,138,.08); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } }
   .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
-  .blockhead { display:flex; justify-content:space-between; align-items:center; }
-  h3 { font-size:14px; margin:0; color:var(--acc); }
-  pre { background:#0e1216; border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; font-size:12px; color:var(--mut); }
-  .hint { color:var(--mut); font-size:12px; }
+  .blockhead { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .block-actions { display:flex; gap:8px; }
+  h3 { font-size:var(--fs-caption); margin:0; color:var(--acc); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+  pre { background:var(--field-bg); border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; font-size:var(--fs-caption); line-height:1.5; color:var(--mut); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .hint { color:var(--mut); font-size:var(--fs-caption); }
   a { color:var(--acc); }
+  /* Touch input: targets ≥44px, independent of screen size (a touch laptop counts) */
+  @media (pointer: coarse) {
+    input, select, button { min-height:44px; }
+    button.tiny { min-height:44px; padding:8px 14px; }
+    .s-del { min-width:44px; }
+  }
+  /* Phones: pin the primary action in the thumb zone instead of letting it scroll away */
+  @media (max-width: 600px) {
+    main { padding-bottom:88px; }
+    .actions { position:fixed; inset:auto 0 0 0; margin:0; gap:8px; z-index:10;
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+      background:var(--bg); border-top:1px solid var(--line); }
+    .actions button { flex:1; }
+  }
 </style>
 </head>
 <body>
@@ -36,25 +71,25 @@
   <p class="sub">Build a custom Apple&nbsp;Watch workout, then add it to your watch or phone. Everything runs in your browser — nothing is uploaded.</p>
 
   <div class="card">
-    <label>Workout name</label>
+    <label for="name">Workout name</label>
     <input id="name" value="N2R Day 1" />
     <div class="row">
       <div>
-        <label>Activity</label>
+        <label for="activity">Activity</label>
         <select id="activity">
           <option>running</option><option>walking</option><option>cycling</option><option>hiking</option>
         </select>
       </div>
       <div>
-        <label>Location</label>
+        <label for="location">Location</label>
         <select id="location"><option>outdoor</option><option>indoor</option></select>
       </div>
       <div>
-        <label>Warmup</label>
+        <label for="warmup">Warmup</label>
         <input id="warmup" value="5min" />
       </div>
       <div>
-        <label>Cooldown</label>
+        <label for="cooldown">Cooldown</label>
         <input id="cooldown" value="5min" />
       </div>
     </div>
@@ -66,15 +101,16 @@
 
   <div class="actions">
     <button class="primary" id="download">Download .workout</button>
-    <button id="share" hidden>Share to phone…</button>
     <button id="showJson">Show JSON</button>
   </div>
+
+  <p id="status" role="status" aria-live="polite" hidden></p>
 
   <pre id="jsonBox" hidden></pre>
 
   <p class="hint" style="margin-top:24px">
     On a Mac: download, then AirDrop the file to your iPhone and tap it → opens in Fitness.
-    On iPhone: use “Share to phone…” (or download and open from Files) → Fitness → Add.
+    On iPhone: download it, then open it from Files → Fitness → Add.
   </p>
 </main>
 
@@ -87,27 +123,44 @@ function stepRow(type = "work", goal = "1min") {
   const div = document.createElement("div");
   div.className = "step";
   div.innerHTML = `
-    <div><label>Type</label><select class="s-type">
+    <div><label>Type <select class="s-type">
       <option value="work">run / work</option><option value="recovery">walk / recovery</option>
-    </select></div>
-    <div><label>Goal</label><input class="s-goal" value="${goal}"></div>
-    <button class="tiny s-del" title="remove">✕</button>`;
+    </select></label></div>
+    <div><label>Goal <input class="s-goal" value="${goal}"></label></div>
+    <button class="tiny s-del" type="button" aria-label="Remove step" title="Remove step">✕</button>`;
   div.querySelector(".s-type").value = type;
   div.querySelector(".s-del").onclick = () => div.remove();
   return div;
+}
+
+// Read a block card's current state as [type, goal] pairs — used to clone it.
+function readBlockState(card) {
+  return {
+    repeat: Math.max(1, parseInt(card.querySelector(".b-repeat").value, 10) || 1),
+    steps: [...card.querySelectorAll(".step")].map((s) => [
+      s.querySelector(".s-type").value, s.querySelector(".s-goal").value,
+    ]),
+  };
 }
 
 function blockCard(repeat = 6, steps = [["work","1min"],["recovery","2min"]]) {
   const card = document.createElement("div");
   card.className = "card block";
   card.innerHTML = `
-    <div class="blockhead"><h3>Repeat block</h3><button class="tiny b-del">remove block</button></div>
-    <label>Repeat count</label><input class="b-repeat" type="number" min="1" value="${repeat}" style="max-width:120px">
+    <div class="blockhead"><h3>Repeat block</h3><div class="block-actions">
+      <button class="tiny b-dup" type="button">Duplicate</button>
+      <button class="tiny b-del" type="button">Remove</button>
+    </div></div>
+    <label>Repeat count <input class="b-repeat" type="number" min="1" value="${repeat}" style="max-width:120px"></label>
     <div class="b-steps"></div>
-    <button class="tiny b-addstep">+ Add step</button>`;
+    <button class="tiny b-addstep" type="button">+ Add step</button>`;
   const stepsEl = card.querySelector(".b-steps");
   steps.forEach(([t,g]) => stepsEl.appendChild(stepRow(t,g)));
   card.querySelector(".b-addstep").onclick = () => stepsEl.appendChild(stepRow());
+  card.querySelector(".b-dup").onclick = () => {
+    const st = readBlockState(card);
+    card.after(blockCard(st.repeat, st.steps));
+  };
   card.querySelector(".b-del").onclick = () => card.remove();
   return card;
 }
@@ -117,7 +170,7 @@ blocksEl.appendChild(blockCard()); // start with one
 
 function readWorkout() {
   const blocks = [...blocksEl.querySelectorAll(".block")].map((b) => ({
-    repeat: parseInt(b.querySelector(".b-repeat").value, 10) || 1,
+    repeat: Math.max(1, parseInt(b.querySelector(".b-repeat").value, 10) || 1),
     steps: [...b.querySelectorAll(".step")].map((s) => ({
       type: s.querySelector(".s-type").value,
       goal: s.querySelector(".s-goal").value.trim() || "open",
@@ -142,26 +195,99 @@ function buildFile() {
   return { w, file: new File([bytes], workoutFilename(w.name), { type: "application/octet-stream" }) };
 }
 
-document.getElementById("download").onclick = () => {
-  try {
-    const { file } = buildFile();
-    const url = URL.createObjectURL(file);
-    const a = document.createElement("a");
-    a.href = url; a.download = file.name; a.click();
-    URL.revokeObjectURL(url);
-  } catch (e) { alert("Couldn’t build workout: " + e.message); }
-};
+// --- inline validation (mirrors the encoder's goal grammar in encoder.js) ---
+const TIME_UNITS = new Set(["s","sec","secs","min","mins","h","hr"]);
+const DIST_UNITS = new Set(["m","km","mi","yd"]);
+const GOAL_RE = /(\d+(?:\.\d+)?)\s*([a-z]+)/g;
 
-const shareBtn = document.getElementById("share");
-if (navigator.canShare && navigator.canShare({ files: [new File([1], "x.workout")] })) {
-  shareBtn.hidden = false;
-  shareBtn.onclick = async () => {
-    try {
-      const { w, file } = buildFile();
-      await navigator.share({ files: [file], title: w.name });
-    } catch (e) { if (e.name !== "AbortError") alert("Share failed: " + e.message); }
-  };
+function goalError(text) {
+  const t = String(text).trim().toLowerCase();
+  if (t === "" || t === "open") return null;
+  const units = [...t.matchAll(GOAL_RE)].map((m) => m[2]);
+  const leftover = t.replace(GOAL_RE, "").trim();
+  if (units.length === 0 || leftover !== "")
+    return "Use a time like 5min, a distance like 400m, or open.";
+  if (units.every((u) => TIME_UNITS.has(u))) return null;
+  if (units.length === 1 && DIST_UNITS.has(units[0])) return null;
+  return "Use a single distance (400m) or one or more times (1min30s) — not mixed.";
 }
+
+function setStatus(msg, kind) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = kind;          // "ok" | "err"
+  el.hidden = false;
+}
+
+function clearErrors() {
+  document.querySelectorAll(".field-err").forEach((el) => el.remove());
+  document.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
+}
+
+function markField(input, msg) {
+  input.setAttribute("aria-invalid", "true");
+  const small = document.createElement("small");
+  small.className = "field-err";
+  small.textContent = msg;
+  input.insertAdjacentElement("afterend", small);
+}
+
+// Returns { ok, steps }. On failure, renders inline errors + a status line and
+// focuses the first bad field. Counts content steps (warmup, cooldown, block steps).
+function validate() {
+  clearErrors();
+  let errors = 0, steps = 0;
+
+  for (const id of ["warmup", "cooldown"]) {
+    const input = document.getElementById(id);
+    const err = goalError(input.value);
+    if (err) { markField(input, err); errors++; }
+    else if (input.value.trim()) steps++;
+  }
+
+  for (const block of blocksEl.querySelectorAll(".block")) {
+    const stepEls = block.querySelectorAll(".step");
+    if (stepEls.length === 0) {
+      const slot = block.querySelector(".b-steps");
+      const small = document.createElement("small");
+      small.className = "field-err";
+      small.textContent = "Add at least one step, or remove this block.";
+      slot.insertAdjacentElement("afterend", small);
+      errors++;
+    }
+    for (const step of stepEls) {
+      const goal = step.querySelector(".s-goal");
+      const err = goalError(goal.value);
+      if (err) { markField(goal, err); errors++; }
+      else steps++;
+    }
+  }
+
+  if (errors === 0 && steps === 0) {
+    setStatus("Add a step, block, warmup, or cooldown before building the file.", "err");
+    return { ok: false, steps };
+  }
+  if (errors > 0) {
+    setStatus(errors === 1 ? "Fix the highlighted field, then try again."
+                           : `Fix the ${errors} highlighted fields, then try again.`, "err");
+    document.querySelector("[aria-invalid='true']")?.focus();
+    return { ok: false, steps };
+  }
+  return { ok: true, steps };
+}
+
+document.getElementById("download").onclick = () => {
+  const { ok, steps } = validate();
+  if (!ok) return;
+  let file;
+  try { ({ file } = buildFile()); }
+  catch (e) { setStatus("Couldn’t build the file: " + e.message, "err"); return; }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url; a.download = file.name; a.click();
+  URL.revokeObjectURL(url);
+  setStatus(`Built ${file.name} (${steps} step${steps === 1 ? "" : "s"}). On a Mac, AirDrop it to your iPhone → tap it → Fitness → Add.`, "ok");
+};
 
 document.getElementById("showJson").onclick = () => {
   const box = document.getElementById("jsonBox");

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-22T00:59:25.909Z",
+  "title": "Design System: iOS Workout Generator",
+  "extensions": {
+    "colorMeta": {
+      "signal-blue":    { "role": "primary", "displayName": "Signal Blue",   "canonical": "#5ac8fa", "tonalRamp": ["#02293b","#045276","#057bb1","#07a4eb","#36bcf9","#71d0fb","#ace3fc","#e6f7fe"] },
+      "deep-ink":       { "role": "primary", "displayName": "Deep Ink",      "canonical": "#06222e", "tonalRamp": ["#072836","#0e506c","#1577a1","#1c9fd7","#48b7e7","#7dccee","#b3e1f5","#e8f6fc"] },
+      "recorder-black": { "role": "neutral", "displayName": "Recorder Black", "canonical": "#0b0d10", "tonalRamp": ["#191d24","#323b48","#4a586c","#637590","#8494ab","#a8b3c3","#ccd2dc","#f0f2f5"] },
+      "recess":         { "role": "neutral", "displayName": "Recess",        "canonical": "#0e1216", "tonalRamp": ["#181f25","#2f3d4a","#475b6f","#5e7994","#8198af","#a6b6c6","#cad4de","#eff2f5"] },
+      "slate-panel":    { "role": "neutral", "displayName": "Slate Panel",   "canonical": "#15191f", "tonalRamp": ["#191d24","#313a49","#4a586d","#627591","#8494ab","#a8b3c4","#ccd2dc","#f0f2f5"] },
+      "control-gray":   { "role": "neutral", "displayName": "Control Gray",  "canonical": "#1d242c", "tonalRamp": ["#181e25","#303c49","#485a6e","#607892","#8296ad","#a7b5c5","#cbd3dd","#f0f2f5"] },
+      "hairline":       { "role": "neutral", "displayName": "Hairline",      "canonical": "#2a313b", "tonalRamp": ["#191e24","#333b47","#4c586a","#65768e","#8694a9","#a9b4c2","#cdd3db","#f0f2f4"] },
+      "dim-label":      { "role": "neutral", "displayName": "Dim Label",     "canonical": "#8a96a6", "tonalRamp": ["#1a1e23","#353c45","#4f5967","#69778a","#8996a6","#acb4c0","#ced3da","#f1f2f4"] },
+      "readout-white":  { "role": "neutral", "displayName": "Readout White", "canonical": "#e8edf2", "tonalRamp": ["#161f27","#2c3d4e","#425b74","#58799b","#7b98b4","#a1b6ca","#c8d4e0","#eff2f6"] },
+      "fault-red":      { "role": "tertiary","displayName": "Fault Red",     "canonical": "#ff8a8a", "tonalRamp": ["#3d0000","#7a0000","#b60000","#f30000","#ff3030","#ff6d6d","#ffa9a9","#ffe5e5"] },
+      "confirm-green":  { "role": "tertiary","displayName": "Confirm Green", "canonical": "#7ee0a0", "tonalRamp": ["#0c3119","#186231","#23934a","#2fc463","#58d784","#89e3a8","#baeecc","#eafaf0"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page title only (h1). 28px, weight 650, tight tracking." },
+      "body":    { "displayName": "Body",    "purpose": "All running text, inputs, selects, buttons. 16px floor." },
+      "label":   { "displayName": "Label",   "purpose": "Uppercase field labels and block headings; hierarchy via case + weight + color." },
+      "mono":    { "displayName": "Mono",    "purpose": "JSON readout and inline code only — where characters must align." }
+    },
+    "motion": [
+      { "name": "control-transition", "value": "150ms ease", "purpose": "Border/background/filter transitions on inputs and buttons." },
+      { "name": "press", "value": "transform 50ms ease", "purpose": "1px downward nudge on :active." },
+      { "name": "reduced-motion", "value": "transition:none; animation:none", "purpose": "Hard off-switch under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "phone", "value": "600px", "purpose": "Below this, the primary action pins to a fixed bottom bar." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The committing action (Download). Used once per context.",
+      "html": "<button class=\"ds-btn-primary\">Download .workout</button>",
+      "css": ".ds-btn-primary { background:#5ac8fa; color:#06222e; border:1px solid #5ac8fa; border-radius:8px; padding:9px 14px; font:600 1rem/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; cursor:pointer; transition:border-color .15s ease, filter .15s ease, transform .05s ease; } .ds-btn-primary:hover { filter:brightness(1.08); } .ds-btn-primary:active { transform:translateY(1px); } .ds-btn-primary:focus-visible { outline:2px solid #5ac8fa; outline-offset:2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet actions: Show JSON, Add/Duplicate/Remove block.",
+      "html": "<button class=\"ds-btn-secondary\">Show JSON</button>",
+      "css": ".ds-btn-secondary { background:#1d242c; color:#e8edf2; border:1px solid #2a313b; border-radius:8px; padding:9px 14px; font:1rem/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; cursor:pointer; transition:border-color .15s ease, transform .05s ease; } .ds-btn-secondary:hover { border-color:#8a96a6; } .ds-btn-secondary:active { transform:translateY(1px); } .ds-btn-secondary:focus-visible { outline:2px solid #5ac8fa; outline-offset:2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Recessed input with a hairline border and Signal-Blue focus ring; 16px text avoids iOS focus-zoom.",
+      "html": "<label class=\"ds-label\">Warmup</label><input class=\"ds-input\" value=\"5min\">",
+      "css": ".ds-label { display:block; font:600 .75rem/1.3 -apple-system,sans-serif; text-transform:uppercase; letter-spacing:.05em; color:#8a96a6; margin:0 0 4px; } .ds-input { width:100%; background:#0e1216; color:#e8edf2; border:1px solid #2a313b; border-radius:8px; padding:9px 10px; font:1rem/1.55 -apple-system,sans-serif; transition:border-color .15s ease; } .ds-input:hover { border-color:#8a96a6; } .ds-input:focus-visible { outline:2px solid #5ac8fa; outline-offset:2px; } .ds-input[aria-invalid='true'] { border-color:#ff8a8a; }"
+    },
+    {
+      "name": "Block Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A repeat block: lighter surface inside the body, hairline border, no shadow.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-cardhead\"><h3 class=\"ds-h3\">Repeat block</h3></div></div>",
+      "css": ".ds-card { background:#15191f; border:1px solid #2a313b; border-radius:12px; padding:16px; } .ds-cardhead { display:flex; justify-content:space-between; align-items:center; gap:8px; } .ds-h3 { margin:0; font:600 .75rem/1.3 -apple-system,sans-serif; text-transform:uppercase; letter-spacing:.06em; color:#5ac8fa; }"
+    },
+    {
+      "name": "Status Panel",
+      "kind": "custom",
+      "refersTo": "status",
+      "description": "Polite live-region feedback. Success names the built file; error summarizes what to fix.",
+      "html": "<p class=\"ds-status ds-status--ok\">Built N2R-Day-1.workout (14 steps). On a Mac, AirDrop it to your iPhone &rarr; tap it &rarr; Fitness &rarr; Add.</p>",
+      "css": ".ds-status { margin:16px 0 0; padding:11px 13px; border-radius:8px; border:1px solid #2a313b; font:1rem/1.5 -apple-system,sans-serif; } .ds-status--ok { color:#7ee0a0; border-color:rgba(126,224,160,.4); background:rgba(126,224,160,.08); } .ds-status--err { color:#ff8a8a; border-color:rgba(255,138,138,.4); background:rgba(255,138,138,.08); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Field Recorder",
+    "overview": "A rugged, exact logging device rendered as a web page. It opens in a dark, low-glare surface and stays out of the way while you enter intervals; its single job is to capture what you describe and record it as a valid Apple .workout file. Trust is earned by precision, not persuasion. Built on three near-black surfaces separated by hairline borders, one cool signal color that marks only what is live, and a strict three-step type scale.",
+    "keyCharacteristics": [
+      "Dark, low-glare working surface — built to be read, not admired.",
+      "One accent (Signal Blue) reserved for live/actionable elements only.",
+      "Flat by doctrine: depth comes from tonal layering and hairlines, never shadow.",
+      "A three-size type scale; hierarchy beyond that is weight, case, and color.",
+      "The form mirrors the workout it builds (warmup → repeat blocks → cooldown)."
+    ],
+    "rules": [
+      { "name": "The Signal Rule", "body": "Signal Blue (#5ac8fa) is reserved for what is live or actionable — primary action, links, current-item headings, focus. If a blue element isn't interactive or doesn't indicate state, it's wrong.", "section": "colors" },
+      { "name": "The Three-Surface Rule", "body": "Depth is exactly three near-black steps — Recorder Black (#0b0d10) → Recess (#0e1216) → Slate Panel (#15191f) — divided by Hairline (#2a313b). Never a fourth surface or a shadow.", "section": "colors" },
+      { "name": "The Three-Step Rule", "body": "Exactly three sizes exist: 12px, 16px, 28px. If an element seems to need a fourth size, change its weight, case, or color instead.", "section": "typography" },
+      { "name": "The Flat Rule", "body": "No box-shadow, anywhere. If something needs to feel separate, step its background one surface lighter and draw a Hairline border.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do reserve Signal Blue (#5ac8fa) for live and actionable elements only (The Signal Rule).",
+      "Do keep depth flat: tonal surface steps + hairline borders, never a shadow (The Flat Rule).",
+      "Do hold the type scale to three sizes — 12 / 16 / 28px — and carry finer hierarchy with weight, case, and color (The Three-Step Rule).",
+      "Do keep body and input text at 16px to stay legible and avoid iOS focus-zoom.",
+      "Do confirm every successful action with a status line that names the file and the next step; report errors inline, in plain language, beside the field.",
+      "Do give every control a visible Signal-Blue focus ring and a ≥44px touch target on coarse pointers."
+    ],
+    "donts": [
+      "Don't look like a hardcore-gym app: no aggressive red/black, no bold italics, no 'no pain no gain' intensity.",
+      "Don't look like a generic SaaS landing page: no gradient hero, no three-card feature grid, no marketing scaffolding or tracked-uppercase eyebrows on every section.",
+      "Don't look like a cluttered consumer fitness app: no activity rings, gamified badges, streaks, or ad density.",
+      "Don't drift toy or childish: no mascots, no bubbly over-rounding, no playfulness that undercuts 'this produces a real, correct file.'",
+      "Don't introduce a second accent hue or a fourth type size — the restraint is the identity.",
+      "Don't use glassmorphism or a backdrop blur for the mobile action bar; use a solid fill and a hairline.",
+      "Don't surface a raw exception string to the user — validate before building and explain the fix."
+    ]
+  }
+}

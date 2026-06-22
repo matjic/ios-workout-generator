@@ -5,3 +5,7 @@ dist/
 *.workout
 public/encoder.js
 .claude/settings.local.json
+
+# impeccable local-only state (caches / per-machine config)
+.impeccable/hook.cache.json
+.impeccable/config.local.json
