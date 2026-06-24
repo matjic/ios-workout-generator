@@ -44,8 +44,8 @@ const UNIT_SECONDS = 1, UNIT_METERS = 5; // seconds confirmed; meters provisiona
 //   field number (metric + 2): speed→4, cadence→5, power→6, heart rate→7.
 //   variant: 1=threshold, 2=range, 3=zone. Within the target, sub-field 1 holds a single
 //   value (threshold/zone), sub-field 2 holds a {lower,upper} range.
-// Verified variants: HR zone, HR range, speed (pace) threshold, cadence threshold.
-// Still uncaptured: speed/cadence range, all power variants, the .average metric.
+// Verified variants: HR zone, HR range, speed (pace)/cadence/power thresholds.
+// Still uncaptured: range variants (speed/cadence/power), power zone, the .average metric.
 const ALERT_METRIC = { speed: 2, cadence: 3, power: 4, heartRate: 5 };
 const ALERT_VARIANT = { threshold: 1, range: 2, zone: 3 };
 const HR_ZONE_MIN = 1, HR_ZONE_MAX = 5;
@@ -152,6 +152,12 @@ function encodeAlert(alert) {
       const spec = concat([vint(1, spm), msg(2, measure(2, 1))]); // count + current block
       return concat([vint(1, ALERT_METRIC.cadence), vint(2, ALERT_VARIANT.threshold),
         target(ALERT_METRIC.cadence, msg(1, spec))]);
+    }
+    case "power": { // watts; threshold spec is a bare Measure (no trailing current block, unlike speed)
+      const watts = Number(alert.watts);
+      if (!(Number.isFinite(watts) && watts > 0)) throw new Error(`power alert needs watts > 0, got: ${alert.watts}`);
+      return concat([vint(1, ALERT_METRIC.power), vint(2, ALERT_VARIANT.threshold),
+        target(ALERT_METRIC.power, msg(1, measure(1, watts)))]);
     }
     default:
       throw new Error(`unsupported alert type: ${alert.type}`);

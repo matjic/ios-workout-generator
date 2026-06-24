@@ -297,9 +297,18 @@ describe("speed / cadence / HR-range alerts (golden)", () => {
       "f03f100632110a0f0801120b0801110000000000c07240c03e01d03e05");
   });
 
-  test("validation: bad HR range / non-positive speed & cadence throw", () => {
+  test("power threshold 200 W", () => {
+    expect(hex(build({ type: "power", watts: 200 }))).toBe(
+      ID + "5a8701082510031a144672656572756e20c2b7204e325220446179203122110a0f0801120b08" +
+      "01110000000000c072402a450a15080112110a0f0801120b0801110000000000004e400a2a08021226" +
+      "0a0f0801120b0801110000000000005e40121308041001320d0a0b0801110000000000006940100632" +
+      "110a0f0801120b0801110000000000c07240c03e01d03e05");
+  });
+
+  test("validation: bad HR range / non-positive speed, cadence, power throw", () => {
     expect(() => build({ type: "heartRateRange", min: 155, max: 140 })).toThrow(/range/);
     expect(() => build({ type: "speed", mps: 0 })).toThrow(/speed/);
     expect(() => build({ type: "cadence", spm: -5 })).toThrow(/cadence/);
+    expect(() => build({ type: "power", watts: 0 })).toThrow(/power/);
   });
 });

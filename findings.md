@@ -151,16 +151,20 @@ holds a `{ 1:lower, 2:upper }` range. Value encoding is per-metric (see below). 
 | HR (5) | range (2) | `7{ 2{ 1{1:<lo>}, 2{1:<hi>} } }` | bare bpm doubles, **no unit** |
 | speed (2) | threshold (1) | `4{ 1{ 1:Measure(u1,<m/s>), 2:Measure(u1,1.0) } }` | m/s double (UnitSpeed base); pace 9 min/mi = 2.98026667 m/s |
 | cadence (3) | threshold (1) | `5{ 1{ 1:<count>, 2:Measure(u2,1.0) } }` | count/min, bare varint (170) |
+| power (4) | threshold (1) | `6{ 1{ 1:1, 2:<watts> } }` | watts double; **bare Measure, no trailing current block** |
 
-The trailing `2:Measure(unit, 1.0)` block on speed/cadence threshold is the **`.current` metric**
-(both samples used the default). Speed wraps its value in a `Measure{unit=1, amount}` (m/s, the
-UnitSpeed base unit); HR-range bounds are bare doubles with no unit; cadence stores a plain count.
+Power confirmed the **metric→field** rule (metric 4 → target field 6). Note the inconsistency: speed
+and cadence thresholds carry a trailing `2:Measure(unit,1.0)` block (the **`.current` metric**), but
+**power's threshold is just a bare `Measure{unit:1, amount:watts}`** — no second sub-field. Speed wraps
+its value in a `Measure{unit=1, amount}` (m/s, the UnitSpeed base unit); HR-range bounds are bare
+doubles with no unit; cadence stores a plain count.
 
 **Still uncaptured (one sample each unlocks it):**
-- **`.average` metric** — every speed/power alert (and the metric block above) defaults to `.current`.
-  Capture a speed/pace alert set to *average* to learn how the `2:Measure(u?,1.0)` block changes.
-- **Speed / cadence *range*** — only thresholds captured; expect target sub-field 2 with two value blocks.
-- **Power** (metric 4 → target field 6, inferred) — range / threshold / zone, `UnitPower` (W). No sample yet.
+- **`.average` metric** — speed/power threshold defaulted to `.current`. A speed/pace or power alert set to
+  *average* shows how the metric is selected (and, given power has *no* current block, where it even lives).
+- **Range variants for speed / cadence / power** — only thresholds captured; expect target sub-field 2
+  with two value blocks (like HR range).
+- **Power zone** — `PowerZoneAlert(zone: Int)`; expect `6{ 1{ 1:<zone> } }` like HR zone, but unconfirmed.
 - **Energy goal** (`WorkoutGoal.energy`, kcal) and **poolSwimDistanceWithTime** — unrelated to alerts but
   still-unmodeled goal types.
 
@@ -176,9 +180,9 @@ UnitSpeed base unit); HR-range bounds are bare doubles with no unit; cadence sto
 
 ## Open gaps (inferred, not yet verified on the wire)
 
-- **Alerts.** Modeled & verified: HR zone, HR range, speed (pace) threshold, cadence threshold (see
-  Alerts section). Still unmodeled — capture one `.workout` of each: the `.average` metric, speed/
-  cadence *range*, and all power variants (range/threshold/zone). Power's target field (6) is inferred.
+- **Alerts.** Modeled & verified: HR zone, HR range, speed (pace) threshold, cadence threshold, power
+  threshold (see Alerts section). Still unmodeled — capture one `.workout` of each: the `.average`
+  metric, range variants for speed/cadence/power, and power zone.
 - **Distance & energy goals.** `distance` type = 2 / unit = 5 (meters) are inferred; `energy` and
   `poolSwimDistanceWithTime` codes are entirely unknown. Non-metric units may serialize differently.
 - **Trailing metadata** `field 1000 = 1, field 1002 = 5` — purpose unknown (version markers?).
