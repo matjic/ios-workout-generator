@@ -108,7 +108,41 @@
       <div>
         <label for="activity">Activity</label>
         <select id="activity">
-          <option>running</option><option>walking</option><option>cycling</option><option>hiking</option>
+          <optgroup label="Run / walk">
+            <option value="running">Running</option>
+            <option value="walking">Walking</option>
+            <option value="hiking">Hiking</option>
+            <option value="wheelchairRunPace">Wheelchair (run pace)</option>
+            <option value="wheelchairWalkPace">Wheelchair (walk pace)</option>
+          </optgroup>
+          <optgroup label="Cycle / row / machine">
+            <option value="cycling">Cycling</option>
+            <option value="handCycling">Hand cycling</option>
+            <option value="rowing">Rowing</option>
+            <option value="elliptical">Elliptical</option>
+            <option value="stairClimbing">Stair climbing</option>
+          </optgroup>
+          <optgroup label="Strength / HIIT">
+            <option value="highIntensityIntervalTraining">HIIT</option>
+            <option value="functionalStrengthTraining">Functional strength</option>
+            <option value="traditionalStrengthTraining">Traditional strength</option>
+            <option value="coreTraining">Core training</option>
+            <option value="crossTraining">Cross training</option>
+          </optgroup>
+          <optgroup label="Studio">
+            <option value="yoga">Yoga</option>
+            <option value="pilates">Pilates</option>
+            <option value="cardioDance">Cardio dance</option>
+            <option value="kickboxing">Kickboxing</option>
+          </optgroup>
+          <optgroup label="Pool / snow / water">
+            <option value="swimming">Pool swimming</option>
+            <option value="crossCountrySkiing">Cross-country skiing</option>
+            <option value="downhillSkiing">Downhill skiing</option>
+            <option value="snowboarding">Snowboarding</option>
+            <option value="paddleSports">Paddle sports</option>
+          </optgroup>
+          <option value="other">Other</option>
         </select>
       </div>
       <div>
