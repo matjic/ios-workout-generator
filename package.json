@@ -4,6 +4,18 @@
   "description": "Generate Apple Watch custom workout (.workout) files from plain JSON — library, CLI, and static web UI.",
   "type": "module",
   "license": "Apache-2.0",
+  "author": "Mathew Jacob",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matjic/ios-workout-generator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/matjic/ios-workout-generator/issues"
+  },
+  "homepage": "https://github.com/matjic/ios-workout-generator#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "main": "./src/encoder.js",
   "types": "./src/encoder.d.ts",
   "exports": {
@@ -14,6 +26,9 @@
   },
   "bin": {
     "ios-workout-generator": "./cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "src/encoder.js",
@@ -28,7 +43,8 @@
     "deploy": "bun run build && wrangler pages deploy public",
     "test": "bun test",
     "verify": "bun verify.mjs",
-    "gen": "bun cli.js"
+    "gen": "bun cli.js",
+    "prepublishOnly": "bun test"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
