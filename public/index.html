@@ -81,7 +81,14 @@
   .alert .a-g { display:inline-flex; gap:6px; align-items:center; }
   .alert .a-g[hidden] { display:none; }
   .alert select, .alert input { width:auto; }
-  .alert input { width:58px; }
+  .alert input { width:64px; text-align:center; }
+  /* Drop the noisy native number spinners on the picker fields — typing (or arrow keys
+     when focused) is the affordance; the steppers only ate width and clipped 3-digit values. */
+  .goal input[type="number"], .alert input[type="number"] { -moz-appearance:textfield; }
+  .goal input[type="number"]::-webkit-outer-spin-button,
+  .goal input[type="number"]::-webkit-inner-spin-button,
+  .alert input[type="number"]::-webkit-outer-spin-button,
+  .alert input[type="number"]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   h3 { font-size:var(--fs-caption); margin:0; color:var(--signal-blue); text-transform:uppercase; letter-spacing:var(--tracking-head); font-weight:var(--fw-label); line-height:var(--lh-label); }
   pre { background:var(--recess); border:1px solid var(--hairline); border-radius:var(--rounded-control); padding:var(--space-sm); overflow:auto; font-size:var(--fs-caption); line-height:var(--lh-tight); color:var(--dim-label); font-family:var(--font-mono); }
   .hint { color:var(--dim-label); font-size:var(--fs-caption); }
