@@ -144,6 +144,22 @@ describe("validation", () => {
     expect(() => encodeWorkout({ name: "x", warmup: { goal: "1min400m" } })).toThrow(/goal/));
 });
 
+describe("activity enum (cross-checked vs HKWorkout.h)", () => {
+  const activityOf = (name) => decode(decode(encodeWorkout({ ...BASE, activity: name }))[11][0])[1][0];
+  test("common activities map to their HKWorkoutActivityType raw values", () => {
+    expect(activityOf("running")).toBe(37);
+    expect(activityOf("walking")).toBe(52);
+    expect(activityOf("cycling")).toBe(13);
+  });
+  test("Apple's enum skips 81: SwimBikeRun=82, Transition=83, UnderwaterDiving=84", () => {
+    expect(activityOf("cooldown")).toBe(80);
+    expect(activityOf("swimBikeRun")).toBe(82);
+    expect(activityOf("transition")).toBe(83);
+    expect(activityOf("underwaterDiving")).toBe(84);
+    expect(activityOf("other")).toBe(3000);
+  });
+});
+
 describe("planId", () => {
   test("provided id is uppercased and embedded", () => {
     const b = decode(encodeWorkout(BASE, "abc-123"));

@@ -106,6 +106,10 @@ Full list also includes `highIntensityIntervalTraining = 63`, `coreTraining = 59
 `crossTraining = 11`, `wheelchairWalkPace = 70`, `wheelchairRunPace = 71`, … `other = 3000`.
 Not all are valid for a custom workout — WorkoutKit gates this with `CustomWorkout.supportsActivity(_:)`.
 
+**SDK cross-check (vs `HKWorkout.h`, all 84 entries):** matched except a one-off bug we fixed —
+Apple's enum **skips 81**; `swimBikeRun` is explicitly `= 82`, so `transition = 83`,
+`underwaterDiving = 84` (we had them at 81/82/83). Pinned by a regression test.
+
 ### Location (field 2) — enum (`HKWorkoutConfiguration.h`)
 `unknown = 1`, `indoor = 2`, `outdoor = 3`. (`outdoor = 3` confirmed on the wire.)
 
@@ -139,9 +143,17 @@ Alert {
 }
 ```
 Inside the target, **sub-field 1** holds a single value (threshold or zone) and **sub-field 2**
-holds a `{ 1:lower, 2:upper }` range. Value encoding is per-metric (see below). All five captures
-(`Carreraalairelibre 2–6.workout`) reproduce **byte-for-byte** — `encodeAlert()` in
+holds a `{ 1:lower, 2:upper }` range. Value encoding is per-metric (see below). All six captures
+(`Carreraalairelibre 2–7.workout`) reproduce **byte-for-byte** — `encodeAlert()` in
 `src/encoder.js`, golden tests in `test/encoder.test.js`.
+
+**On the metric code (field 1) — is there a `1`?** The four public `WorkoutAlert` quantity types
+(speed/cadence/power/heartRate) occupy codes **2–5**. This is a *private* serialization enum: it is
+**not** in the public SDK (only `WorkoutAlertMetric{current,average}` — a different enum — is exposed).
+So `0` and `1` are unobserved and not derivable from headers; `0` is presumably none/unspecified and
+`1` a reserved/internal metric with no public alert struct (and thus likely unreachable from a
+`.workout`). Ruled out: `1 = pace`, since our running 9 min/mi pace sample serialized as speed (`2`).
+Confirming `1` would need the private framework binary or a contrived sample.
 
 **Verified variants:**
 

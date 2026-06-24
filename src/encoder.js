@@ -30,7 +30,8 @@ const ACTIVITY = {
   stepTraining: 69, wheelchairWalkPace: 70, wheelchairRunPace: 71, taiChi: 72,
   mixedCardio: 73, handCycling: 74, discSports: 75, fitnessGaming: 76,
   cardioDance: 77, socialDance: 78, pickleball: 79, cooldown: 80,
-  swimBikeRun: 81, transition: 82, underwaterDiving: 83, other: 3000,
+  // NB: Apple's enum skips 81 — SwimBikeRun is explicitly = 82 (verified vs HKWorkout.h).
+  swimBikeRun: 82, transition: 83, underwaterDiving: 84, other: 3000,
 };
 const LOCATION = { unknown: 1, indoor: 2, outdoor: 3 };
 const PURPOSE  = { work: 1, recovery: 2 };
