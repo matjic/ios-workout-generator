@@ -188,6 +188,30 @@ describe("heart-rate-zone alerts", () => {
     expect(hex(mine)).toBe(golden);
   });
 
+  test("zone-4 export reproduces, differing from zone-2 by exactly one byte", () => {
+    // Carreraalairelibre 3.workout: same workout, zone 4 instead of 2 — proves the
+    // 1:5 (HR) and 2:3 (zone) discriminators are fixed; only the nested zone byte moves.
+    const z4 =
+      "4a2443414330453541412d423631382d343746452d414239352d4334343835363346443638435a7e082510031a1446" +
+      "72656572756e20c2b7204e325220446179203122110a0f0801120b0801110000000000c072402a3c0a15080112110a" +
+      "0f0801120b0801110000000000004e400a210802121d0a0f0801120b0801110000000000005e40120a080510033a04" +
+      "0a020804100632110a0f0801120b0801110000000000c07240c03e01d03e05";
+    const build = (zone) => encodeWorkout(
+      { name: "Freerun · N2R Day 1", activity: "running", location: "outdoor",
+        warmup: { goal: "5min" },
+        blocks: [{ repeat: 6, steps: [
+          { type: "work", goal: "1min" },
+          { type: "recovery", goal: "2min", alert: { type: "heartRateZone", zone } },
+        ] }],
+        cooldown: { goal: "5min" } },
+      "CAC0E5AA-B618-47FE-AB95-C448563FD68C",
+    );
+    const mine = build(4);
+    expect(hex(mine)).toBe(z4);
+    const diffs = [...build(2)].reduce((d, b, i) => (b !== mine[i] ? [...d, i] : d), []);
+    expect(diffs).toEqual([144]); // single byte: the zone
+  });
+
   test("each zone 1-5 emits its zone byte in the alert envelope", () => {
     for (let z = 1; z <= 5; z++) {
       const out = hex(encodeWorkout({
@@ -229,6 +253,53 @@ describe("heart-rate-zone alerts", () => {
   });
 
   test("unknown alert type throws", () =>
-    expect(() => encodeWorkout({ name: "z", warmup: { goal: "open", alert: { type: "pace", value: 300 } } }))
+    expect(() => encodeWorkout({ name: "z", warmup: { goal: "open", alert: { type: "made-up" } } }))
       .toThrow(/alert type/));
+});
+
+describe("speed / cadence / HR-range alerts (golden)", () => {
+  const hex = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  // Same N2R workout, recovery step carrying each alert — reproduced byte-for-byte
+  // from real exports (Carreraalairelibre 4/5/6.workout).
+  const build = (alert) => encodeWorkout(
+    { name: "Freerun · N2R Day 1", activity: "running", location: "outdoor",
+      warmup: { goal: "5min" },
+      blocks: [{ repeat: 6, steps: [
+        { type: "work", goal: "1min" },
+        { type: "recovery", goal: "2min", alert },
+      ] }],
+      cooldown: { goal: "5min" } },
+    "CAC0E5AA-B618-47FE-AB95-C448563FD68C",
+  );
+  const ID = "4a2443414330453541412d423631382d343746452d414239352d433434383536334644363843";
+
+  test("heart-rate range 140-155 bpm", () => {
+    expect(hex(build({ type: "heartRateRange", min: 140, max: 155 }))).toBe(
+      ID + "5a9201082510031a144672656572756e20c2b7204e325220446179203122110a0f0801120b08" +
+      "01110000000000c072402a500a15080112110a0f0801120b0801110000000000004e400a35080212" +
+      "310a0f0801120b0801110000000000005e40121e080510023a1812160a09090000000000806140120" +
+      "9090000000000606340100632110a0f0801120b0801110000000000c07240c03e01d03e05");
+  });
+
+  test("speed (pace) threshold 9 min/mi == 2.98026667 m/s", () => {
+    expect(hex(build({ type: "speed", mps: 2.98026667 }))).toBe(
+      ID + "5a9601082510031a144672656572756e20c2b7204e325220446179203122110a0f0801120b08" +
+      "01110000000000c072402a540a15080112110a0f0801120b0801110000000000004e400a390802123" +
+      "50a0f0801120b0801110000000000005e40122208021001221c0a1a0a0b0801111212480d96d70740" +
+      "120b080111000000000000f03f100632110a0f0801120b0801110000000000c07240c03e01d03e05");
+  });
+
+  test("cadence threshold 170 spm", () => {
+    expect(hex(build({ type: "cadence", spm: 170 }))).toBe(
+      ID + "5a8c01082510031a144672656572756e20c2b7204e325220446179203122110a0f0801120b08" +
+      "01110000000000c072402a4a0a15080112110a0f0801120b0801110000000000004e400a2f0802122" +
+      "b0a0f0801120b0801110000000000005e401218080310012a120a1008aa01120b080211000000000000" +
+      "f03f100632110a0f0801120b0801110000000000c07240c03e01d03e05");
+  });
+
+  test("validation: bad HR range / non-positive speed & cadence throw", () => {
+    expect(() => build({ type: "heartRateRange", min: 155, max: 140 })).toThrow(/range/);
+    expect(() => build({ type: "speed", mps: 0 })).toThrow(/speed/);
+    expect(() => build({ type: "cadence", spm: -5 })).toThrow(/cadence/);
+  });
 });

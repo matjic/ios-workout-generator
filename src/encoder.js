@@ -37,10 +37,17 @@ const PURPOSE  = { work: 1, recovery: 2 };
 const GOAL_TIME = 1, GOAL_DISTANCE = 2;
 const UNIT_SECONDS = 1, UNIT_METERS = 5; // seconds confirmed; meters provisional
 
-// Step alert (Step field 2). Only the heart-rate ZONE variant is reverse-engineered
-// so far — verified byte-for-byte against a real export (verify-alert.mjs / golden test).
-// Wire shape:  Alert{ metric=1, variant=2, zone=7{ 1{ 1: <n> } } }
-const ALERT_METRIC_HR = 5, ALERT_VARIANT_ZONE = 3;
+// Step alert (Step field 2). Reverse-engineered and verified byte-for-byte against real
+// exports (golden tests). Wire shape:
+//   Alert{ metric=1, variant=2, target=<metric+2>{ <oneof> } }
+//   metric: 2=speed, 3=cadence, 4=power, 5=heart rate. The target message lives at
+//   field number (metric + 2): speed→4, cadence→5, power→6, heart rate→7.
+//   variant: 1=threshold, 2=range, 3=zone. Within the target, sub-field 1 holds a single
+//   value (threshold/zone), sub-field 2 holds a {lower,upper} range.
+// Verified variants: HR zone, HR range, speed (pace) threshold, cadence threshold.
+// Still uncaptured: speed/cadence range, all power variants, the .average metric.
+const ALERT_METRIC = { speed: 2, cadence: 3, power: 4, heartRate: 5 };
+const ALERT_VARIANT = { threshold: 1, range: 2, zone: 3 };
 const HR_ZONE_MIN = 1, HR_ZONE_MAX = 5;
 
 const TIME = { s: 1, sec: 1, secs: 1, min: 60, mins: 60, h: 3600, hr: 3600 };
@@ -104,17 +111,51 @@ function parseGoal(text) {
 
 // Encode a step alert into its `Alert` body, or null when there's no alert.
 // Currently only `{ type:"heartRateZone", zone:1..5 }` is supported (see ALERT_*).
+// A Measure{ unit=1, amount=2 }. Used by goals, by speed targets (unit=m/s), and by the
+// trailing per-metric "current" block that threshold alerts carry (amount fixed at 1.0).
+function measure(unit, amount) { return concat([vint(1, unit), f64(2, amount)]); }
+
 function encodeAlert(alert) {
   if (alert == null) return null;
-  if (alert.type !== "heartRateZone") throw new Error(`unsupported alert type: ${alert.type}`);
-  const zone = Math.trunc(alert.zone);
-  if (!(zone >= HR_ZONE_MIN && zone <= HR_ZONE_MAX)) {
-    throw new Error(`heart-rate zone must be ${HR_ZONE_MIN}-${HR_ZONE_MAX}, got: ${alert.zone}`);
+  // The target message sits at field (metric + 2); within it, sub-field 1 = single value
+  // (threshold/zone), sub-field 2 = range.
+  const target = (metric, body) => msg(metric + 2, body);
+
+  switch (alert.type) {
+    case "heartRateZone": {
+      const zone = Math.trunc(alert.zone);
+      if (!(zone >= HR_ZONE_MIN && zone <= HR_ZONE_MAX)) {
+        throw new Error(`heart-rate zone must be ${HR_ZONE_MIN}-${HR_ZONE_MAX}, got: ${alert.zone}`);
+      }
+      return concat([vint(1, ALERT_METRIC.heartRate), vint(2, ALERT_VARIANT.zone),
+        target(ALERT_METRIC.heartRate, msg(1, vint(1, zone)))]);
+    }
+    case "heartRateRange": {
+      const min = Number(alert.min), max = Number(alert.max);
+      if (!(Number.isFinite(min) && Number.isFinite(max) && min >= 1 && max > min)) {
+        throw new Error(`heart-rate range needs 1 <= min < max bpm, got: ${alert.min}-${alert.max}`);
+      }
+      const range = concat([msg(1, f64(1, min)), msg(2, f64(1, max))]); // bare bpm doubles, no unit
+      return concat([vint(1, ALERT_METRIC.heartRate), vint(2, ALERT_VARIANT.range),
+        target(ALERT_METRIC.heartRate, msg(2, range))]);
+    }
+    case "speed": { // pace, as metres/second; metric fixed to .current until a sample says otherwise
+      const mps = Number(alert.mps);
+      if (!(Number.isFinite(mps) && mps > 0)) throw new Error(`speed alert needs mps > 0, got: ${alert.mps}`);
+      const spec = concat([msg(1, measure(1, mps)), msg(2, measure(1, 1))]); // value (m/s) + current block
+      return concat([vint(1, ALERT_METRIC.speed), vint(2, ALERT_VARIANT.threshold),
+        target(ALERT_METRIC.speed, msg(1, spec))]);
+    }
+    case "cadence": { // counts per minute (e.g. running steps/min); metric fixed to .current
+      const spm = Math.trunc(alert.spm);
+      if (!(spm > 0)) throw new Error(`cadence alert needs spm > 0, got: ${alert.spm}`);
+      const spec = concat([vint(1, spm), msg(2, measure(2, 1))]); // count + current block
+      return concat([vint(1, ALERT_METRIC.cadence), vint(2, ALERT_VARIANT.threshold),
+        target(ALERT_METRIC.cadence, msg(1, spec))]);
+    }
+    default:
+      throw new Error(`unsupported alert type: ${alert.type}`);
   }
-  return concat([
-    vint(1, ALERT_METRIC_HR), vint(2, ALERT_VARIANT_ZONE),
-    msg(7, msg(1, vint(1, zone))),
-  ]);
 }
 
 // A `Step` body: goal (field 1, absent == open) plus an optional alert (field 2).

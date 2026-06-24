@@ -126,42 +126,45 @@ WorkoutKit `WorkoutGoal` cases: `open`, `time(Double, UnitDuration)`, `distance(
 
 Goal amounts are IEEE-754 doubles (`Measure` field 2, wire type 1).
 
-### Alerts (`Step.alert`, field 2) — HR-zone variant now on the wire
+### Alerts (`Step.alert`, field 2) — grammar decoded across four metrics
 A `Step` (the message inside warmup=4 / IntervalStep.step=2 / cooldown=6) carries an optional
-**`Alert` at field 2**, alongside the goal at field 1. One variant is now **verified byte-for-byte**
-(`Carreraalairelibre 2.workout`, a recovery step with a heart-rate **zone-2** alert):
+**`Alert` at field 2**, alongside the goal at field 1. General shape:
 
 ```
-Step {
-  1 { …Goal… }              // existing
-  2 {                       // Alert
-    1: 5                     // metric  — heart rate     (inferred constant)
-    2: 3                     // variant — zone           (inferred constant)
-    7 { 1 { 1: <zone> } }    // zone payload, Int 1–5    (byte = 2 in the sample)
-  }
+Alert {
+  1: <metric>             // 2=speed, 3=cadence, 4=power, 5=heart rate
+  2: <variant>            // 1=threshold, 2=range, 3=zone
+  <metric+2> { ... }      // target message — field number tracks the metric:
+                          //   speed→4, cadence→5, power→6, heart rate→7
 }
 ```
+Inside the target, **sub-field 1** holds a single value (threshold or zone) and **sub-field 2**
+holds a `{ 1:lower, 2:upper }` range. Value encoding is per-metric (see below). All five captures
+(`Carreraalairelibre 2–6.workout`) reproduce **byte-for-byte** — `encodeAlert()` in
+`src/encoder.js`, golden tests in `test/encoder.test.js`.
 
-Wire bytes of the alert envelope for zone *z*: `12 0a 08 05 10 03 3a 04 0a 02 08 0z`.
-Encoded by `encodeAlert()` in `src/encoder.js`; locked by the golden test in `test/encoder.test.js`.
+**Verified variants:**
 
-**Verified:** the full container, and that the deeply-nested `7{1{1:n}}` value is the zone.
-**Inferred (1 sample):** that `1:5` = heart-rate metric and `2:3` = zone variant are *fixed*
-discriminators rather than co-varying with the zone. A second capture at a different zone would
-confirm the zone byte is the only thing that moves; a non-HR sample would confirm what `1:` selects.
-
-Remaining WorkoutKit alert vocabulary (wire encoding still **unknown** — needs one sample each):
-
-| Alert struct | Target type / unit | Variants | Metric |
+| Metric (field 1) | Variant (field 2) | Target | Value encoding |
 |---|---|---|---|
-| HeartRateRangeAlert | `UnitFrequency` (bpm), two bounds | range | — |
-| SpeedRangeAlert / SpeedThresholdAlert | `UnitSpeed` (pace) | range, threshold | `current` / `average` |
-| PowerRangeAlert / PowerThresholdAlert / PowerZoneAlert | `UnitPower` (W) or `zone: Int` | range, threshold, zone | `current` / `average` |
-| CadenceRangeAlert / CadenceThresholdAlert | cadence unit | range, threshold | — |
+| HR (5) | zone (3) | `7{ 1{ 1:<zone> } }` | zone Int 1–5, bare varint |
+| HR (5) | range (2) | `7{ 2{ 1{1:<lo>}, 2{1:<hi>} } }` | bare bpm doubles, **no unit** |
+| speed (2) | threshold (1) | `4{ 1{ 1:Measure(u1,<m/s>), 2:Measure(u1,1.0) } }` | m/s double (UnitSpeed base); pace 9 min/mi = 2.98026667 m/s |
+| cadence (3) | threshold (1) | `5{ 1{ 1:<count>, 2:Measure(u2,1.0) } }` | count/min, bare varint (170) |
 
-`WorkoutAlertMetric` = `{ current, average }`. Pace is expressed via **Speed** (`UnitSpeed`), not a
-separate pace alert. Range/threshold alerts will carry IEEE-754 bound(s) (like goals) rather than a
-small Int, so their encoding will differ structurally from the zone variant above.
+The trailing `2:Measure(unit, 1.0)` block on speed/cadence threshold is the **`.current` metric**
+(both samples used the default). Speed wraps its value in a `Measure{unit=1, amount}` (m/s, the
+UnitSpeed base unit); HR-range bounds are bare doubles with no unit; cadence stores a plain count.
+
+**Still uncaptured (one sample each unlocks it):**
+- **`.average` metric** — every speed/power alert (and the metric block above) defaults to `.current`.
+  Capture a speed/pace alert set to *average* to learn how the `2:Measure(u?,1.0)` block changes.
+- **Speed / cadence *range*** — only thresholds captured; expect target sub-field 2 with two value blocks.
+- **Power** (metric 4 → target field 6, inferred) — range / threshold / zone, `UnitPower` (W). No sample yet.
+- **Energy goal** (`WorkoutGoal.energy`, kcal) and **poolSwimDistanceWithTime** — unrelated to alerts but
+  still-unmodeled goal types.
+
+`WorkoutAlertMetric` = `{ current, average }`. Pace is **Speed** (`UnitSpeed`), not a separate type.
 
 ### Swimming (only relevant to `poolSwimDistanceWithTime` goals, not yet encoded) — enum
 `HKWorkoutSwimmingLocationType`: `unknown = 0`, `pool = 1`, `openWater = 2`.
@@ -173,10 +176,9 @@ small Int, so their encoding will differ structurally from the zone variant abov
 
 ## Open gaps (inferred, not yet verified on the wire)
 
-- **Alerts.** Heart-rate **zone** is now modeled and verified (see Alerts section). The remaining
-  ~8 typed variants (HR-range, speed/pace, power range/threshold/zone, cadence range/threshold,
-  each with a `current`/`average` metric) are still unmodeled — capture one `.workout` of each to
-  learn its fields. Range/threshold variants will embed IEEE-754 bounds, unlike the zone Int.
+- **Alerts.** Modeled & verified: HR zone, HR range, speed (pace) threshold, cadence threshold (see
+  Alerts section). Still unmodeled — capture one `.workout` of each: the `.average` metric, speed/
+  cadence *range*, and all power variants (range/threshold/zone). Power's target field (6) is inferred.
 - **Distance & energy goals.** `distance` type = 2 / unit = 5 (meters) are inferred; `energy` and
   `poolSwimDistanceWithTime` codes are entirely unknown. Non-metric units may serialize differently.
 - **Trailing metadata** `field 1000 = 1, field 1002 = 5` — purpose unknown (version markers?).
