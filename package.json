@@ -1,6 +1,6 @@
 {
   "name": "ios-workout-generator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate Apple Watch custom workout (.workout) files from plain JSON — library, CLI, and static web UI.",
   "type": "module",
   "license": "Apache-2.0",
@@ -36,7 +36,14 @@
     "cli.js",
     "findings.md"
   ],
-  "keywords": ["apple-watch", "workout", "workoutkit", "healthkit", "fitness", "running"],
+  "keywords": [
+    "apple-watch",
+    "workout",
+    "workoutkit",
+    "healthkit",
+    "fitness",
+    "running"
+  ],
   "scripts": {
     "build": "cp src/encoder.js public/encoder.js",
     "dev": "bun run build && wrangler pages dev public",
