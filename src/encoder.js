@@ -37,6 +37,12 @@ const PURPOSE  = { work: 1, recovery: 2 };
 const GOAL_TIME = 1, GOAL_DISTANCE = 2;
 const UNIT_SECONDS = 1, UNIT_METERS = 5; // seconds confirmed; meters provisional
 
+// Step alert (Step field 2). Only the heart-rate ZONE variant is reverse-engineered
+// so far — verified byte-for-byte against a real export (verify-alert.mjs / golden test).
+// Wire shape:  Alert{ metric=1, variant=2, zone=7{ 1{ 1: <n> } } }
+const ALERT_METRIC_HR = 5, ALERT_VARIANT_ZONE = 3;
+const HR_ZONE_MIN = 1, HR_ZONE_MAX = 5;
+
 const TIME = { s: 1, sec: 1, secs: 1, min: 60, mins: 60, h: 3600, hr: 3600 };
 const DIST = { m: 1, km: 1000, mi: 1609.344, yd: 0.9144 };
 
@@ -96,15 +102,36 @@ function parseGoal(text) {
   throw new Error(`bad goal (mixed/unknown units): ${text}`);
 }
 
-function encodeStep(goalText) {
-  return parseGoal(goalText) ?? new Uint8Array(0); // empty body == open goal
+// Encode a step alert into its `Alert` body, or null when there's no alert.
+// Currently only `{ type:"heartRateZone", zone:1..5 }` is supported (see ALERT_*).
+function encodeAlert(alert) {
+  if (alert == null) return null;
+  if (alert.type !== "heartRateZone") throw new Error(`unsupported alert type: ${alert.type}`);
+  const zone = Math.trunc(alert.zone);
+  if (!(zone >= HR_ZONE_MIN && zone <= HR_ZONE_MAX)) {
+    throw new Error(`heart-rate zone must be ${HR_ZONE_MIN}-${HR_ZONE_MAX}, got: ${alert.zone}`);
+  }
+  return concat([
+    vint(1, ALERT_METRIC_HR), vint(2, ALERT_VARIANT_ZONE),
+    msg(7, msg(1, vint(1, zone))),
+  ]);
+}
+
+// A `Step` body: goal (field 1, absent == open) plus an optional alert (field 2).
+function encodeStep(goalText, alert) {
+  const parts = [];
+  const goal = parseGoal(goalText);
+  if (goal) parts.push(goal);
+  const a = encodeAlert(alert);
+  if (a) parts.push(msg(2, a));
+  return parts.length ? concat(parts) : new Uint8Array(0); // empty body == open, no alert
 }
 
 function encodeBlock(block) {
   const parts = [];
   for (const st of block.steps) {
     if (!(st.type in PURPOSE)) throw new Error(`bad step type: ${st.type}`);
-    const istep = concat([vint(1, PURPOSE[st.type]), msg(2, encodeStep(st.goal ?? "open"))]);
+    const istep = concat([vint(1, PURPOSE[st.type]), msg(2, encodeStep(st.goal ?? "open", st.alert))]);
     parts.push(msg(1, istep));
   }
   parts.push(vint(2, Math.trunc(block.repeat ?? 1)));
@@ -121,9 +148,9 @@ export function encodeWorkout(w, planId) {
   planId = (planId ?? crypto.randomUUID()).toUpperCase();
 
   const parts = [vint(1, ACTIVITY[activity]), vint(2, LOCATION[location]), str(3, w.name)];
-  if (w.warmup) parts.push(msg(4, encodeStep(w.warmup.goal)));
+  if (w.warmup) parts.push(msg(4, encodeStep(w.warmup.goal, w.warmup.alert)));
   for (const block of w.blocks ?? []) parts.push(msg(5, encodeBlock(block)));
-  if (w.cooldown) parts.push(msg(6, encodeStep(w.cooldown.goal)));
+  if (w.cooldown) parts.push(msg(6, encodeStep(w.cooldown.goal, w.cooldown.alert)));
 
   return concat([
     str(9, planId),

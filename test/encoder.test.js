@@ -162,3 +162,73 @@ describe("workoutFilename", () => {
     expect(workoutFilename("  --weird-- ")).toBe("weird.workout");
   });
 });
+
+describe("heart-rate-zone alerts", () => {
+  const hex = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  // Step.alert (field 2) on the wire for a given zone: 12 0a 08 05 10 03 3a 04 0a 02 08 <zone>
+  const alertHex = (zone) => "120a080510033a040a0208" + zone.toString(16).padStart(2, "0");
+
+  test("reproduces a real HR-zone export byte-for-byte", () => {
+    // Carreraalairelibre 2.workout: recovery step carries a heart-rate zone-2 alert.
+    const golden =
+      "4a2443414330453541412d423631382d343746452d414239352d4334343835363346443638435a7e082510031a1446" +
+      "72656572756e20c2b7204e325220446179203122110a0f0801120b0801110000000000c072402a3c0a15080112110a" +
+      "0f0801120b0801110000000000004e400a210802121d0a0f0801120b0801110000000000005e40120a080510033a04" +
+      "0a020802100632110a0f0801120b0801110000000000c07240c03e01d03e05";
+    const mine = encodeWorkout(
+      { name: "Freerun · N2R Day 1", activity: "running", location: "outdoor",
+        warmup: { goal: "5min" },
+        blocks: [{ repeat: 6, steps: [
+          { type: "work", goal: "1min" },
+          { type: "recovery", goal: "2min", alert: { type: "heartRateZone", zone: 2 } },
+        ] }],
+        cooldown: { goal: "5min" } },
+      "CAC0E5AA-B618-47FE-AB95-C448563FD68C",
+    );
+    expect(hex(mine)).toBe(golden);
+  });
+
+  test("each zone 1-5 emits its zone byte in the alert envelope", () => {
+    for (let z = 1; z <= 5; z++) {
+      const out = hex(encodeWorkout({
+        name: "z", blocks: [{ repeat: 1, steps: [{ type: "work", goal: "open", alert: { type: "heartRateZone", zone: z } }] }],
+      }));
+      expect(out).toContain(alertHex(z));
+    }
+  });
+
+  test("an alert coexists with a goal in the same step", () => {
+    const out = hex(encodeWorkout({
+      name: "z", blocks: [{ repeat: 1, steps: [{ type: "recovery", goal: "2min", alert: { type: "heartRateZone", zone: 3 } }] }],
+    }));
+    expect(out).toContain(alertHex(3)); // alert present
+    expect(out).toContain("0000005e40");  // 120.0s goal double still present
+  });
+
+  test("warmup and cooldown can carry an alert too", () => {
+    const out = hex(encodeWorkout({
+      name: "z", warmup: { goal: "5min", alert: { type: "heartRateZone", zone: 1 } },
+      cooldown: { goal: "5min", alert: { type: "heartRateZone", zone: 5 } },
+    }));
+    expect(out).toContain(alertHex(1));
+    expect(out).toContain(alertHex(5));
+  });
+
+  test("a step with no alert encodes no alert envelope", () => {
+    const out = hex(encodeWorkout({
+      name: "z", blocks: [{ repeat: 1, steps: [{ type: "work", goal: "1min" }] }],
+    }));
+    expect(out).not.toContain("3a040a0208"); // the zone-wrapper signature never appears
+  });
+
+  test("zone outside 1-5 throws", () => {
+    for (const zone of [0, 6, -1]) {
+      expect(() => encodeWorkout({ name: "z", warmup: { goal: "open", alert: { type: "heartRateZone", zone } } }))
+        .toThrow(/zone/);
+    }
+  });
+
+  test("unknown alert type throws", () =>
+    expect(() => encodeWorkout({ name: "z", warmup: { goal: "open", alert: { type: "pace", value: 300 } } }))
+      .toThrow(/alert type/));
+});

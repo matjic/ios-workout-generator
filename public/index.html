@@ -44,6 +44,7 @@
   .step { display:flex; gap:var(--space-xs); align-items:flex-end; margin:var(--space-xs) 0; }
   .step > div { flex:1; min-width:0; }
   .step select { max-width:130px; }
+  .step .alert select { width:auto; }
   button { font:inherit; cursor:pointer; border-radius:var(--rounded-control); border:1px solid var(--hairline); background:var(--control-gray); color:var(--readout-white); padding:9px 14px; transition:border-color var(--control-transition), background-color var(--control-transition), filter var(--control-transition), var(--press-transition); }
   button.primary { background:var(--signal-blue); color:var(--deep-ink); border-color:var(--signal-blue); font-weight:var(--fw-label); }
   button.tiny { padding:6px 10px; font-size:var(--fs-caption); }
@@ -268,7 +269,30 @@ function readGoal(wrap) {
   return "";
 }
 
-function stepRow(type = "work", goal = "1min") {
+// A heart-rate-zone alert picker. Only HR-zone alerts are reverse-engineered so far
+// (verified byte-for-byte); other alert metrics will arrive as samples are captured.
+function alertControl(alert) {
+  const wrap = document.createElement("span");
+  wrap.className = "alert";
+  wrap.innerHTML = `
+    <select class="a-kind" aria-label="Heart-rate alert">
+      <option value="">No alert</option>
+      <option value="1">HR zone 1</option><option value="2">HR zone 2</option>
+      <option value="3">HR zone 3</option><option value="4">HR zone 4</option>
+      <option value="5">HR zone 5</option>
+    </select>`;
+  wrap.querySelector(".a-kind").value =
+    alert && alert.type === "heartRateZone" ? String(alert.zone) : "";
+  return wrap;
+}
+
+// Serialize an alert picker to the encoder's alert object, or null for none.
+function readAlert(wrap) {
+  const v = wrap.querySelector(".a-kind").value;
+  return v ? { type: "heartRateZone", zone: parseInt(v, 10) } : null;
+}
+
+function stepRow(type = "work", goal = "1min", alert = null) {
   const div = document.createElement("div");
   div.className = "step";
   div.innerHTML = `
@@ -276,19 +300,23 @@ function stepRow(type = "work", goal = "1min") {
       <option value="work">run / work</option><option value="recovery">walk / recovery</option>
     </select></label></div>
     <div class="s-goalwrap"><span class="goal-label">Goal</span></div>
+    <div class="s-alertwrap"><span class="goal-label">Alert</span></div>
     <button class="tiny s-del" type="button" aria-label="Remove step" title="Remove step">✕</button>`;
   div.querySelector(".s-type").value = type;
   div.querySelector(".s-goalwrap").appendChild(goalControl(goal, false));
+  div.querySelector(".s-alertwrap").appendChild(alertControl(alert));
   div.querySelector(".s-del").onclick = () => removeWithUndo(div, "step");
   return div;
 }
 
-// Read a block card's current state as [type, goal] pairs — used to clone it.
+// Read a block card's current state as [type, goal, alert] tuples — used to clone it.
 function readBlockState(card) {
   return {
     repeat: Math.max(1, parseInt(card.querySelector(".b-repeat").value, 10) || 1),
     steps: [...card.querySelectorAll(".step")].map((s) => [
-      s.querySelector(".s-type").value, readGoal(s.querySelector(".goal")) || "open",
+      s.querySelector(".s-type").value,
+      readGoal(s.querySelector(".goal")) || "open",
+      readAlert(s.querySelector(".alert")),
     ]),
   };
 }
@@ -307,7 +335,7 @@ function blockCard(repeat = 6, steps = [["work","1min"],["recovery","2min"]]) {
     <div class="b-steps"></div>
     <button class="tiny b-addstep" type="button">+ Add step</button>`;
   const stepsEl = card.querySelector(".b-steps");
-  steps.forEach(([t,g]) => stepsEl.appendChild(stepRow(t,g)));
+  steps.forEach(([t,g,a]) => stepsEl.appendChild(stepRow(t,g,a)));
   card.querySelector(".b-addstep").onclick = () => stepsEl.appendChild(stepRow());
   card.querySelector(".b-dup").onclick = () => {
     const st = readBlockState(card);
@@ -334,10 +362,15 @@ document.getElementById("cooldownGoal").appendChild(goalControl("5min", true));
 function readWorkout() {
   const blocks = [...blocksEl.querySelectorAll(".block")].map((b) => ({
     repeat: Math.max(1, parseInt(b.querySelector(".b-repeat").value, 10) || 1),
-    steps: [...b.querySelectorAll(".step")].map((s) => ({
-      type: s.querySelector(".s-type").value,
-      goal: readGoal(s.querySelector(".goal")) || "open",
-    })),
+    steps: [...b.querySelectorAll(".step")].map((s) => {
+      const step = {
+        type: s.querySelector(".s-type").value,
+        goal: readGoal(s.querySelector(".goal")) || "open",
+      };
+      const alert = readAlert(s.querySelector(".alert"));
+      if (alert) step.alert = alert;
+      return step;
+    }),
   }));
   const w = {
     name: document.getElementById("name").value.trim() || "Workout",
